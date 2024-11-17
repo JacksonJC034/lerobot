@@ -17,11 +17,11 @@ seed: 1000
 dataset_repo_id: lerobot/koch_pick_place_lego
 
 override_dataset_stats:
-  observation.images.phone:
+  observation.images.webcam:
     # stats from imagenet, since we use a pretrained vision model
     mean: [[[0.485]], [[0.456]], [[0.406]]]  # (c,1,1)
     std: [[[0.229]], [[0.224]], [[0.225]]]  # (c,1,1)
-  observation.images.webcam:
+  observation.images.phone:
     # stats from imagenet, since we use a pretrained vision model
     mean: [[[0.485]], [[0.456]], [[0.406]]]  # (c,1,1)
     std: [[[0.229]], [[0.224]], [[0.225]]]  # (c,1,1)
@@ -59,24 +59,16 @@ policy:
 
   input_shapes:
     # TODO(rcadene, alexander-soare): add variables for height and width from the dataset/env?
-<<<<<<< HEAD
     observation.images.webcam: [3, 480, 640]
-=======
->>>>>>> 767c66d62fef62cd2863d36ec33efd2e71d14130
     observation.images.phone: [3, 480, 640]
-    observation.images.webcam: [3, 480, 640]
     observation.state: ["${env.state_dim}"]
   output_shapes:
     action: ["${env.action_dim}"]
 
   # Normalization / Unnormalization
   input_normalization_modes:
-<<<<<<< HEAD
     observation.images.webcam: mean_std
-=======
->>>>>>> 767c66d62fef62cd2863d36ec33efd2e71d14130
     observation.images.phone: mean_std
-    observation.images.webcam: mean_std
     observation.state: mean_std
   output_normalization_modes:
     action: mean_std
