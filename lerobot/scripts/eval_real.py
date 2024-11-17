@@ -54,8 +54,10 @@ robot.connect()
 
 observation, action = robot.teleop_step(record_data=True)
 
-# robot.disconnect()
-'''real_test'''
+
+"""
+Run the trained policy on the koch arm
+"""
 inference_time_s = 60
 fps = 30
 device = "cuda"  # TODO: On Mac, use "mps" or "cpu"
@@ -90,3 +92,5 @@ for _ in range(inference_time_s * fps):
 
     dt_s = time.perf_counter() - start_time
     busy_wait(1 / fps - dt_s)
+    
+# robot.disconnect()
