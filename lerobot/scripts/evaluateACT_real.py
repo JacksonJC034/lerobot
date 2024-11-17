@@ -3,8 +3,9 @@ import time
 from lerobot.common.robot_devices.motors.dynamixel import DynamixelMotorsBus
 from lerobot.common.robot_devices.robots.manipulator import ManipulatorRobot
 from lerobot.common.robot_devices.cameras.opencv import OpenCVCamera
+from lerobot.common.policies.act.modeling_act import ACTPolicy
 from lerobot.scripts.control_robot import busy_wait
-
+import torch
 
 """
 Define the arms of korch robot
@@ -45,38 +46,47 @@ robot = ManipulatorRobot(
     follower_arms={"main": follower_arm},
     calibration_dir=".cache/calibration/koch",
     cameras={
-        "iPhone": OpenCVCamera(4, fps=30, width=640, height=480),
+        "phone": OpenCVCamera(4, fps=30, width=640, height=480),
         "webcam": OpenCVCamera(2, fps=30, width=640, height=480)
     },
 )
 robot.connect()
 
 observation, action = robot.teleop_step(record_data=True)
-print(observation["observation.images.iPhone"].shape)
-print(observation["observation.images.iPhone"].min().item())
-print(observation["observation.images.iPhone"].max().item())
 
 # robot.disconnect()
+'''real_test'''
+inference_time_s = 60
+fps = 30
+device = "cuda"  # TODO: On Mac, use "mps" or "cpu"
+ckpt_path = "underctrl/lerobot_data_collection"
+policy = ACTPolicy.from_pretrained(ckpt_path)
+policy.to(device)
 
-
-"""
-Record data
-"""
-record_time_s = 30
-fps = 60
-
-states = []
-actions = []
-for _ in range(record_time_s * fps):
+for _ in range(inference_time_s * fps):
     start_time = time.perf_counter()
-    observation, action = robot.teleop_step(record_data=True)
 
-    states.append(observation["observation.state"])
-    actions.append(action["action"])
+    # Read the follower state and access the frames from the cameras
+    observation = robot.capture_observation()
+
+    # Convert to pytorch format: channel first and float32 in [0,1]
+    # with batch dimension
+    for name in observation:
+        if "image" in name:
+            observation[name] = observation[name].type(torch.float32) / 255
+            observation[name] = observation[name].permute(2, 0, 1).contiguous()
+        observation[name] = observation[name].unsqueeze(0)
+        observation[name] = observation[name].to(device)
+
+    # Compute the next action with the policy
+    # based on the current observation
+    action = policy.select_action(observation)
+    # Remove batch dimension
+    action = action.squeeze(0)
+    # Move to cpu, if not already the case
+    action = action.to("cpu")
+    # Order the robot to move
+    robot.send_action(action)
 
     dt_s = time.perf_counter() - start_time
     busy_wait(1 / fps - dt_s)
-
-# Note that observation and action are available in RAM, but
-# you could potentially store them on disk with pickle/hdf5 or
-# our optimized format `LeRobotDataset`. More on this next.
