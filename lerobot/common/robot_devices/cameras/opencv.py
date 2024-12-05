@@ -34,16 +34,35 @@ MAX_OPENCV_INDEX = 60
 def find_cameras(raise_when_empty=False, max_index_search_range=MAX_OPENCV_INDEX, mock=False) -> list[dict]:
     cameras = []
     if platform.system() == "Linux":
-        print("Linux detected. Finding available camera indices through scanning '/dev/video*' ports")
-        possible_ports = [str(port) for port in Path("/dev").glob("video*")]
-        ports = _find_cameras(possible_ports, mock=mock)
-        for port in ports:
+        print("Linux detected. Finding available camera indices through scanning '/dev/video*' or '/dev/media*' ports")
+        # possible_ports = [str(port) for port in Path("/dev").glob("video*")]
+        # ports = _find_cameras(possible_ports, mock=mock)
+        # for port in ports:
+        #     cameras.append(
+        #         {
+        #             "port": port,
+        #             "index": int(port.removeprefix("/dev/video")),
+        #         }
+        #     )
+        possible_video_ports = [str(port) for port in Path("/dev").glob("video*")]
+        possible_media_ports = [str(port) for port in Path("/dev").glob("media*")]
+        video_ports = _find_cameras(possible_video_ports,  mock=mock)
+        media_ports = _find_cameras(possible_media_ports,  mock=mock)
+        for port in video_ports:
             cameras.append(
                 {
                     "port": port,
                     "index": int(port.removeprefix("/dev/video")),
                 }
             )
+        for port in media_ports:
+            cameras.append(
+                {
+                    "port": port,
+                    "index": int(port.removeprefix("/dev/media")),
+                }
+            )
+         
     else:
         print(
             "Mac or Windows detected. Finding available camera indices through "
@@ -95,8 +114,20 @@ def is_valid_unix_path(path: str) -> bool:
     return p.is_absolute() and p.exists()
 
 
+# def get_camera_index_from_unix_port(port: Path) -> int:
+#     return int(str(port.resolve()).removeprefix("/dev/video"))
+
 def get_camera_index_from_unix_port(port: Path) -> int:
-    return int(str(port.resolve()).removeprefix("/dev/video"))
+    # Resolve the path to its absolute form
+    resolved_path = str(port.resolve())
+    
+    # Remove the prefix based on the detected type
+    if resolved_path.startswith("/dev/video"):
+        return int(resolved_path.removeprefix("/dev/video"))
+    elif resolved_path.startswith("/dev/media"):
+        return int(resolved_path.removeprefix("/dev/media"))
+    else:
+        raise ValueError(f"Unexpected port prefix: {resolved_path}")
 
 
 def save_image(img_array, camera_index, frame_index, images_dir):
@@ -241,7 +272,7 @@ class OpenCVCamera:
 
     camera = OpenCVCamera(0, fps=90, width=640, height=480, color_mode="bgr")
     camera = connect()
-    ```
+    ```g
     """
 
     def __init__(self, camera_index: int | str, config: OpenCVCameraConfig | None = None, **kwargs):
